@@ -1,40 +1,81 @@
+import { db } from '../db';
+import { storeInfoTable } from '../db/schema';
 import { type CreateStoreInfoInput, type UpdateStoreInfoInput, type StoreInfo } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export async function createStoreInfo(input: CreateStoreInfoInput): Promise<StoreInfo> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating or updating store information in the database.
-    // Should validate input data and persist store details including logo, name, SSM no, address, and phone.
-    return Promise.resolve({
-        id: 1,
+  try {
+    // Insert store information record
+    const result = await db.insert(storeInfoTable)
+      .values({
         store_name: input.store_name,
-        ssm_no: input.ssm_no || null,
-        address: input.address || null,
-        phone_no: input.phone_no || null,
-        logo_url: input.logo_url || null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as StoreInfo);
+        ssm_no: input.ssm_no,
+        address: input.address,
+        phone_no: input.phone_no,
+        logo_url: input.logo_url
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Store info creation failed:', error);
+    throw error;
+  }
 }
 
 export async function getStoreInfo(): Promise<StoreInfo | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is retrieving the current store information from the database.
-    // Should return null if no store info exists yet.
-    return Promise.resolve(null);
+  try {
+    // Get the first (and should be only) store info record
+    const result = await db.select()
+      .from(storeInfoTable)
+      .limit(1)
+      .execute();
+
+    return result.length > 0 ? result[0] : null;
+  } catch (error) {
+    console.error('Store info retrieval failed:', error);
+    throw error;
+  }
 }
 
 export async function updateStoreInfo(input: UpdateStoreInfoInput): Promise<StoreInfo> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating existing store information in the database.
-    // Should validate the store exists and update only provided fields.
-    return Promise.resolve({
-        id: input.id,
-        store_name: 'Updated Store',
-        ssm_no: null,
-        address: null,
-        phone_no: null,
-        logo_url: null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as StoreInfo);
+  try {
+    // Build update object with only provided fields
+    const updateData: Record<string, any> = {
+      updated_at: new Date()
+    };
+
+    if (input.store_name !== undefined) {
+      updateData['store_name'] = input.store_name;
+    }
+    if (input.ssm_no !== undefined) {
+      updateData['ssm_no'] = input.ssm_no;
+    }
+    if (input.address !== undefined) {
+      updateData['address'] = input.address;
+    }
+    if (input.phone_no !== undefined) {
+      updateData['phone_no'] = input.phone_no;
+    }
+    if (input.logo_url !== undefined) {
+      updateData['logo_url'] = input.logo_url;
+    }
+
+    // Update the store information record
+    const result = await db.update(storeInfoTable)
+      .set(updateData)
+      .where(eq(storeInfoTable.id, input.id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error('Store information not found');
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error('Store info update failed:', error);
+    throw error;
+  }
 }

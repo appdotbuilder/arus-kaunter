@@ -1,50 +1,120 @@
+import { db } from '../db';
+import { automaticDiscountsTable } from '../db/schema';
 import { type CreateAutomaticDiscountInput, type UpdateAutomaticDiscountInput, type AutomaticDiscount } from '../schema';
+import { eq, desc, and } from 'drizzle-orm';
 
 export async function createAutomaticDiscount(input: CreateAutomaticDiscountInput): Promise<AutomaticDiscount> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new automatic discount rule in the database.
-    // Should validate the discount tier doesn't conflict with existing rules.
-    return Promise.resolve({
-        id: 1,
-        minimum_amount: input.minimum_amount,
-        discount_percentage: input.discount_percentage,
-        is_active: input.is_active,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as AutomaticDiscount);
+  try {
+    // Insert automatic discount record
+    const result = await db.insert(automaticDiscountsTable)
+      .values({
+        minimum_amount: input.minimum_amount.toString(),
+        discount_percentage: input.discount_percentage.toString(),
+        is_active: input.is_active
+      })
+      .returning()
+      .execute();
+
+    // Convert numeric fields back to numbers before returning
+    const discount = result[0];
+    return {
+      ...discount,
+      minimum_amount: parseFloat(discount.minimum_amount),
+      discount_percentage: parseFloat(discount.discount_percentage)
+    };
+  } catch (error) {
+    console.error('Automatic discount creation failed:', error);
+    throw error;
+  }
 }
 
 export async function getAutomaticDiscounts(): Promise<AutomaticDiscount[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all automatic discount rules from the database.
-    // Should return rules ordered by minimum_amount ascending for proper tier evaluation.
-    return Promise.resolve([]);
+  try {
+    const results = await db.select()
+      .from(automaticDiscountsTable)
+      .orderBy(automaticDiscountsTable.minimum_amount)
+      .execute();
+
+    return results.map(discount => ({
+      ...discount,
+      minimum_amount: parseFloat(discount.minimum_amount),
+      discount_percentage: parseFloat(discount.discount_percentage)
+    }));
+  } catch (error) {
+    console.error('Failed to fetch automatic discounts:', error);
+    throw error;
+  }
 }
 
 export async function getActiveAutomaticDiscounts(): Promise<AutomaticDiscount[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching only active discount rules for transaction processing.
-    // Should return active rules ordered by minimum_amount descending for best match first.
-    return Promise.resolve([]);
+  try {
+    const results = await db.select()
+      .from(automaticDiscountsTable)
+      .where(eq(automaticDiscountsTable.is_active, true))
+      .orderBy(desc(automaticDiscountsTable.minimum_amount))
+      .execute();
+
+    return results.map(discount => ({
+      ...discount,
+      minimum_amount: parseFloat(discount.minimum_amount),
+      discount_percentage: parseFloat(discount.discount_percentage)
+    }));
+  } catch (error) {
+    console.error('Failed to fetch active automatic discounts:', error);
+    throw error;
+  }
 }
 
 export async function updateAutomaticDiscount(input: UpdateAutomaticDiscountInput): Promise<AutomaticDiscount> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing automatic discount rule in the database.
-    // Should validate the discount exists and update provided fields.
-    return Promise.resolve({
-        id: input.id,
-        minimum_amount: input.minimum_amount || 0,
-        discount_percentage: input.discount_percentage || 0,
-        is_active: input.is_active ?? true,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as AutomaticDiscount);
+  try {
+    // Build update values object with only provided fields
+    const updateValues: any = {};
+    
+    if (input.minimum_amount !== undefined) {
+      updateValues.minimum_amount = input.minimum_amount.toString();
+    }
+    if (input.discount_percentage !== undefined) {
+      updateValues.discount_percentage = input.discount_percentage.toString();
+    }
+    if (input.is_active !== undefined) {
+      updateValues.is_active = input.is_active;
+    }
+
+    // Always update the updated_at timestamp
+    updateValues.updated_at = new Date();
+
+    const result = await db.update(automaticDiscountsTable)
+      .set(updateValues)
+      .where(eq(automaticDiscountsTable.id, input.id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Automatic discount with id ${input.id} not found`);
+    }
+
+    // Convert numeric fields back to numbers before returning
+    const discount = result[0];
+    return {
+      ...discount,
+      minimum_amount: parseFloat(discount.minimum_amount),
+      discount_percentage: parseFloat(discount.discount_percentage)
+    };
+  } catch (error) {
+    console.error('Automatic discount update failed:', error);
+    throw error;
+  }
 }
 
 export async function deleteAutomaticDiscount(id: number): Promise<{ success: boolean }> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is deleting an automatic discount rule from the database.
-    // Should safely remove the discount rule without affecting historical transactions.
-    return Promise.resolve({ success: true });
+  try {
+    const result = await db.delete(automaticDiscountsTable)
+      .where(eq(automaticDiscountsTable.id, id))
+      .execute();
+
+    return { success: true };
+  } catch (error) {
+    console.error('Automatic discount deletion failed:', error);
+    throw error;
+  }
 }

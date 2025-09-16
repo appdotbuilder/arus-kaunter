@@ -1,39 +1,104 @@
+import { db } from '../db';
+import { productCategoriesTable, productsTable } from '../db/schema';
 import { type CreateProductCategoryInput, type UpdateProductCategoryInput, type ProductCategory } from '../schema';
+import { eq, asc, count } from 'drizzle-orm';
 
 export async function createProductCategory(input: CreateProductCategoryInput): Promise<ProductCategory> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is creating a new product category in the database.
-    // Should validate category name uniqueness and persist the new category.
-    return Promise.resolve({
-        id: 1,
-        name: input.name,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as ProductCategory);
+  try {
+    // Insert new product category
+    const result = await db.insert(productCategoriesTable)
+      .values({
+        name: input.name
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Product category creation failed:', error);
+    throw error;
+  }
 }
 
 export async function getProductCategories(): Promise<ProductCategory[]> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is fetching all active product categories from the database.
-    // Should return categories ordered by creation date or alphabetically.
-    return Promise.resolve([]);
+  try {
+    // Fetch all product categories ordered by name
+    const categories = await db.select()
+      .from(productCategoriesTable)
+      .orderBy(asc(productCategoriesTable.name))
+      .execute();
+
+    return categories;
+  } catch (error) {
+    console.error('Failed to fetch product categories:', error);
+    throw error;
+  }
 }
 
 export async function updateProductCategory(input: UpdateProductCategoryInput): Promise<ProductCategory> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing product category in the database.
-    // Should validate the category exists and update the name if provided.
-    return Promise.resolve({
-        id: input.id,
-        name: input.name || 'Updated Category',
-        created_at: new Date(),
-        updated_at: new Date()
-    } as ProductCategory);
+  try {
+    // Check if category exists
+    const existing = await db.select()
+      .from(productCategoriesTable)
+      .where(eq(productCategoriesTable.id, input.id))
+      .execute();
+
+    if (existing.length === 0) {
+      throw new Error('Product category not found');
+    }
+
+    // Update category with provided fields
+    const updateData: any = {
+      updated_at: new Date()
+    };
+
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+    }
+
+    const result = await db.update(productCategoriesTable)
+      .set(updateData)
+      .where(eq(productCategoriesTable.id, input.id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Product category update failed:', error);
+    throw error;
+  }
 }
 
 export async function deleteProductCategory(id: number): Promise<{ success: boolean }> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is deleting a product category from the database.
-    // Should check if category is not being used by any products before deletion.
-    return Promise.resolve({ success: true });
+  try {
+    // Check if category exists
+    const existing = await db.select()
+      .from(productCategoriesTable)
+      .where(eq(productCategoriesTable.id, id))
+      .execute();
+
+    if (existing.length === 0) {
+      throw new Error('Product category not found');
+    }
+
+    // Check if category is being used by any products
+    const productCount = await db.select({ count: count() })
+      .from(productsTable)
+      .where(eq(productsTable.category_id, id))
+      .execute();
+
+    if (productCount[0].count > 0) {
+      throw new Error('Cannot delete category that is being used by products');
+    }
+
+    // Delete the category
+    await db.delete(productCategoriesTable)
+      .where(eq(productCategoriesTable.id, id))
+      .execute();
+
+    return { success: true };
+  } catch (error) {
+    console.error('Product category deletion failed:', error);
+    throw error;
+  }
 }
